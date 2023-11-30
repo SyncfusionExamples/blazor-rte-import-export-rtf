@@ -1,0 +1,133 @@
+﻿@page "/"
+
+@using Syncfusion.Blazor.RichTextEditor;
+@using Syncfusion.Blazor.Inputs;
+@using Syncfusion.Blazor.Buttons;
+@using Syncfusion.DocIO;
+@using Syncfusion.DocIO.DLS;
+
+<SfRichTextEditor @bind-Value="rteValue" EnableXhtml="true">
+	<RichTextEditorToolbarSettings Items="Tools">
+		<RichTextEditorCustomToolbarItems>
+			<RichTextEditorCustomToolbarItem Name="Import">
+				<Template>
+					<SfUploader ID="UploadFiles" ShowFileList="false" CssClass="e-import">
+						<UploaderAsyncSettings SaveUrl="api/SampleData/Import"></UploaderAsyncSettings>
+						<UploaderEvents Success="@onSuccess"></UploaderEvents>
+						<UploaderButtons Browse=""></UploaderButtons>
+					</SfUploader>
+				</Template>
+			</RichTextEditorCustomToolbarItem>
+			<RichTextEditorCustomToolbarItem Name="Export">
+				<Template>
+					<SfButton OnClick="OnExport" CssClass="e-icons e-export"></SfButton>
+				</Template>
+			</RichTextEditorCustomToolbarItem>
+		</RichTextEditorCustomToolbarItems>
+	</RichTextEditorToolbarSettings>
+</SfRichTextEditor>
+
+<style>
+
+	.e-btn.e-icons.e-export::before {
+		content: '\e709';
+		color: #fff;
+	}
+
+	.e-richtexteditor .e-rte-toolbar .e-toolbar-item .e-icons.e-export {
+		padding: 8px;
+	}
+
+	.e-import.e-upload .e-upload-browse-btn {
+		font-family: "e-icons";
+	}
+
+	.e-import.e-upload .e-file-select-wrap {
+		padding: 0px;
+	}
+
+	.e-import.e-upload .e-file-drop, .e-import.e-upload .e-file-select {
+		display: none;
+	}
+
+	.e-import .e-upload-browse-btn::before {
+		content: '\e726';
+	}
+</style>
+
+
+@code{
+
+	[Inject]
+	IJSRuntime? jsRuntime { get; set; }
+
+	private string rteValue { get; set; } = @"<p>The Rich Text Editor component is a WYSIWYG
+	('what you see is what you get') editor that provides the best user experience to create and update
+	the content. Users can format their content using standard toolbar commands.</p>";
+
+	private List<ToolbarItemModel> Tools = new List<ToolbarItemModel>()
+	{
+		new ToolbarItemModel() { Command = ToolbarCommand.Bold },
+		new ToolbarItemModel() { Command = ToolbarCommand.Italic },
+		new ToolbarItemModel() { Command = ToolbarCommand.Underline },
+		new ToolbarItemModel() { Command = ToolbarCommand.Separator },
+		new ToolbarItemModel() { Command = ToolbarCommand.Formats },
+		new ToolbarItemModel() { Command = ToolbarCommand.Alignments },
+		new ToolbarItemModel() { Command = ToolbarCommand.OrderedList },
+		new ToolbarItemModel() { Command = ToolbarCommand.UnorderedList },
+		new ToolbarItemModel() { Command = ToolbarCommand.Separator },
+		new ToolbarItemModel() { Command = ToolbarCommand.CreateLink },
+		new ToolbarItemModel() { Command = ToolbarCommand.CreateTable },
+		new ToolbarItemModel() { Command = ToolbarCommand.Image },
+		new ToolbarItemModel() { Command = ToolbarCommand.Separator },
+		new ToolbarItemModel() { Command = ToolbarCommand.SourceCode },
+		new ToolbarItemModel() { Command = ToolbarCommand.Undo },
+		new ToolbarItemModel() { Command = ToolbarCommand.Redo },
+		new ToolbarItemModel() { Name = "Import", TooltipText = "Import the RTF document" },
+		new ToolbarItemModel() { Name = "Export", TooltipText = "Export into RTF document" },
+
+	};
+
+	public void onSuccess(SuccessEventArgs args)
+	{
+		var headers = args.Response.Headers.ToString();
+		var header = headers.Split("rtevalue: ");
+		header = header[1].Split("\r");
+		this.rteValue = header[0];
+	}
+
+	public async Task OnExport()
+	{
+		if (jsRuntime != null)
+		{
+			WordDocument document = GetDocument(rteValue);
+			MemoryStream stream = new MemoryStream();
+			document.Save(stream, FormatType.Rtf);
+			stream.Position = 0;
+			await SaveAs(jsRuntime, "Sample.rtf", stream.ToArray());
+			document.Close();
+			stream.Flush();
+			stream.Dispose();
+		}
+	}
+
+	public async Task SaveAs(IJSRuntime js, string filename, byte[] data)
+	{
+		await js.InvokeVoidAsync("saveAsFile", filename, Convert.ToBase64String(data));
+	}
+
+	public WordDocument GetDocument(string? RTFText)
+	{
+		WordDocument? document = null;
+		if (!string.IsNullOrEmpty(RTFText))
+		{
+			MemoryStream stream = new MemoryStream();
+			StreamWriter writer = new StreamWriter(stream, System.Text.Encoding.Default);
+			writer.Write(RTFText);
+			writer.Flush();
+			stream.Position = 0;
+			document = new WordDocument(stream, FormatType.Html, XHTMLValidationType.None);
+		}
+		return document;
+	}
+}
